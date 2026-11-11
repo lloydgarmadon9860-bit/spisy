@@ -16,7 +16,7 @@ body:after{content:'';position:fixed;inset:0;pointer-events:none;background:repe
 </style></head><body>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.1';
+const VERSION='1.2';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -33,14 +33,14 @@ const SUR=[['Novák','Nováková'],['Svoboda','Svobodová'],['Dvořák','Dvořá
 const CITY=['Ostrava','Opava','Frýdek-Místek','Havířov','Karviná','Nový Jičín','Olomouc','Brno','Praha','Zlín','Šumperk','Jeseník','Třinec','Kopřivnice','Bohumín','Hlučín'];
 const PLACE=['opuštěná továrna u řeky','zastávka MHD na konci linky','lesní cesta za vesnicí','parkoviště u nákupního centra','starý důl','nádraží, nástupiště 3','hřbitov u kostela','podchod pod dálnicí','chata u přehrady','zahrádkářská kolonie','opuštěná nemocnice','sídliště, panelák č. 14','benzinka u silnice I/11','kino, poslední představení','park u zámku'];
 const JOB=['student','prodavač/ka','řidič/ka autobusu','učitel/ka','programátor/ka','kuchař/ka','zdravotní sestra','hlídač/ka','fotograf/ka','horník','pošťák/pošťačka','knihovník/knihovnice','mechanik','barman/ka','youtuber/ka'];
-const STAT=[['NEZVĚSTNÝ','y'],['NEVYŘEŠENO','r'],['UZAVŘENO','d'],['UTAJENO','c'],['NALEZEN/A','w'],['NEVYŘEŠENO','r'],['NEZVĚSTNÝ','y']];
+const STAT_OLD=[['NEZVĚSTNÝ','y'],['NEVYŘEŠENO','r'],['UZAVŘENO','d'],['UTAJENO','c'],['NALEZEN/A','w'],['NEVYŘEŠENO','r'],['NEZVĚSTNÝ','y']];
 const CLUE=['rozbitý telefon s posledním hovorem v 23:47','jedna bota bez tkaničky','lístek do kina na neexistující film','vzkaz „NEHLEDEJTE MĚ“ psaný obráceně','klíče od bytu, ve kterém nikdy nebydlel/a','polaroid fotka prázdné místnosti','mapa s červeným křížkem u přehrady','kazeta s 12 minutami ticha','deník s vytrženými stránkami 13–19','stopy vedoucí do lesa, které náhle končí','hodinky zastavené na 3:33','neznámé otisky na okně ve 4. patře','SMS „už jdu“ odeslaná 2 dny po zmizení','starý klíč s číslem 47','záznam z kamery: postava v žluté bundě','vlasy jiné barvy na kabátě','kartička z knihovny s divným jménem'];
 const WIT=['soused','řidič autobusu','kamarád/ka','prodavačka z večerky','neznámý muž v klobouku','paní venčící psa','bezpečák','bratr/sestra','učitel','taxikář'];
 const SAY=['viděl/a ho/ji odcházet směrem k lesu','tvrdí, že slyšel/a hudbu z prázdného bytu','říká, že měl/a strach z „toho auta“','nic neviděl/a, ale ten večer zhasla všechna světla','viděl/a ho/ji mluvit s někým, kdo tam nebyl','tvrdí, že se ho/jí někdo ptal na cestu ke starému dolu','slyšel/a tři rány na dveře','říká, že ho/ji potkal/a o týden později','viděl/a ho/ji naposledy smát se','si všiml/a, že nosil/a dva telefony'];
 const NOTE=['Spojitost se spisem #{n} je nejasná.','Svědci si odporují. Doporučuji znovu vyslechnout.','Případ byl předán vyšší složce. Další přístup [ODEPŘEN].','Žluta bunda se objevuje i v jiných spisech.','Číslo 47 se tu opakuje. Náhoda?','Rodina požádala o uzavření spisu.','Na fotce je v odrazu okna někdo další.','Vyšetřovatel případu záhadně odešel z oddělení.','Tento spis by neměl existovat.'];
 function genFile(db,n){
   const r=rng(hash(db+'#'+n));const fem=r()<.5;const nm=P(r,fem?F:M),sur=P(r,SUR)[fem?1:0];
-  const st=P(r,STAT),year=1984+Math.floor(r()*41),mon=1+Math.floor(r()*12),day=1+Math.floor(r()*28),hh=Math.floor(r()*24),mm=Math.floor(r()*60);
+  const st=P(r,STAT_OLD),year=1984+Math.floor(r()*41),mon=1+Math.floor(r()*12),day=1+Math.floor(r()*28),hh=Math.floor(r()*24),mm=Math.floor(r()*60);
   const clues=[...CLUE].map(c=>c.replace('bydlel/a',fem?'bydlela':'bydlel')).sort(()=>r()-.5).slice(0,2+Math.floor(r()*3));
   const w=[...new Set([...Array(1+Math.floor(r()*2))].map(()=>P(r,WIT)+': '+P(r,SAY).replace(/ho\/ji/g,fem?'ji':'ho').replace(/ho\/jí/g,fem?'jí':'ho')))];
   const other=1+Math.floor(r()*75);
@@ -50,55 +50,81 @@ function genFile(db,n){
 }
 function pad(n){return String(n).padStart(3,'0')}
 function face(f){const e=f.fem?'(◕ ◕)':'(• •)';return ` ┌────────┐\n │ ${f.corrupt?'▓▒░▓▒░':' '+e+' '}│\n │  ${f.corrupt?'░▓▒░':'\\__/'}  │\n └────────┘`}
+let curFile=null;
+const solved=JSON.parse(localStorage.getItem('spisy_solved')||'{}');
+const isSolved=(db,n)=>!!solved[db+'#'+n];
+const stOf=(db,n)=>isSolved(db,n)?['VYŘEŠENO','w']:['NEVYŘEŠENO','r'];
+function setPs(){document.getElementById('ps').textContent=curFile?`agent@spisy:~/${curFile.db}/spis_${pad(curFile.n)}$`:(openDb?`agent@spisy:~/${openDb}$`:'agent@spisy:~$')}
+const SECT={id:'🪪 id',foto:'📷 foto',info:'📋 info',posledni:'📍 posledni',dukazy:'🔎 dukazy',svedectvi:'🗣️ svedectvi',poznamka:'📝 poznamka',stav:'⚖️ stav'};
+const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 async function showFile(db,n){
-  const f=genFile(db,n);busy=true;
-  line(`<span class="d">otevírám ${esc(db)}/spis_${pad(n)} …</span>`);await sleep(350);
-  const d=line(`<div class="idc${f.corrupt?' cor':''}"><img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(db+'-'+n)}&backgroundColor=d1d5db"><div style="flex:1;min-width:0"><div class="h">IDENTIFIKAČNÍ KARTA · ${f.id}</div>
-<b>${esc(f.corrupt?f.name.replace(/[aeiouáéíóú]/gi,'█'):f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'} · ${f.age} let<br>Bydliště: ${esc(f.city)}<br>Výška ${f.h} cm · Oči: ${f.eyes}<br><span class="st ${f.st[1]}">${f.st[0]}</span><div class="bc"></div></div></div>`);await sleep(400);
-  if(f.corrupt){await type(`<span class="r glitch">⚠ SPIS #${pad(n)} JE POŠKOZENÝ ⚠\n▓▒░ ${esc(f.name.replace(/[aeiouáéíóú]/gi,'█'))} ░▒▓\nčást dat byla smazána ${f.date}\n> obnoveno 23 %</span>`);}
-  await type(`<span class="w">══════════════════════════════════════</span>
-<span class="y">  SPIS #${pad(n)}   [${esc(db.toUpperCase())}]   ID ${f.id}</span>
-<span class="w">══════════════════════════════════════</span>
-  Jméno ........ <span class="w">${esc(f.name)}</span>
-  Věk .......... ${f.age}
-  Povolání ..... ${esc(f.job)}
-  Město ........ ${esc(f.city)}
-  Stav ......... <span class="${f.st[1]}">${f.st[0]}</span>
-
-<span class="c">▸ POSLEDNÍ ZÁZNAM</span>
-  ${f.date}, ${f.time} — ${esc(f.place)}${f.redact?' <span class="red">██████████</span>':''}
-
-<span class="c">▸ DŮKAZY</span>
-${f.clues.map(c=>'  • '+esc(c)).join('\n')}
-
-<span class="c">▸ SVĚDECTVÍ</span>
-${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}
-
-<span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>
-  <span class="y">${esc(f.note)}</span>
-<span class="w">══════════════════════════════════════</span>`,6);
+  const f=genFile(db,n);curFile=f;openDb=db;setPs();busy=true;
+  line(`<span class="d">otevírám ${esc(db)}/spis_${pad(n)} …</span>`);await sleep(300);
+  if(f.corrupt)await type(`<span class="r glitch">⚠ část spisu je poškozená ⚠</span>`);
+  await type(`<span class="y">📁 SPIS #${pad(n)} otevřen</span>  stav: <span class="${stOf(db,n)[1]}">${stOf(db,n)[0]}</span>
+Části: ${Object.values(SECT).map(x=>'<span class="dir" data-s="'+x.split(' ')[1]+'">'+x+'</span>').join('  ')}
+<span class="d">Napiš název části (např. foto). Až případ rozlouskneš, napiš: vyřešeno. Zpět: zpet</span>`,10);
   busy=false;
 }
+async function showSect(k){
+  const f=curFile,db=f.db,n=f.n;const cn=f.corrupt?f.name.replace(/[aeiouáéíóú]/gi,'█'):f.name;busy=true;
+  if(k==='id')await type(`<span class="c">▸ ID</span>
+  Číslo ........ <span class="w">${f.id}</span>
+  Jméno ........ <span class="w">${esc(cn)}</span>
+  Narozen/a .... ${f.born}
+  Pohlaví ...... ${f.fem?'žena':'muž'}
+  Věk .......... ${f.age}
+  Výška ........ ${f.h} cm
+  Oči .......... ${f.eyes}`);
+  if(k==='foto'){line(`<div class="idc${f.corrupt?' cor':''}"><img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(db+'-'+n)}&backgroundColor=d1d5db"><div style="flex:1;min-width:0"><div class="h">IDENTIFIKAČNÍ KARTA · ${f.id}</div><b>${esc(cn)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Bydliště: ${esc(f.city)}<br><span class="st ${stOf(db,n)[1]}">${stOf(db,n)[0]}</span><div class="bc"></div></div></div>`);await sleep(300)}
+  if(k==='info')await type(`<span class="c">▸ INFO</span>
+  Povolání ..... ${esc(f.job)}
+  Bydliště ..... ${esc(f.city)}`);
+  if(k==='posledni')await type(`<span class="c">▸ POSLEDNÍ ZÁZNAM</span>
+  ${f.date}, ${f.time} — ${esc(f.place)}${f.redact?' <span class="red">██████████</span>':''}`);
+  if(k==='dukazy')await type(`<span class="c">▸ DŮKAZY</span>\n${f.clues.map(c=>'  • '+esc(c)).join('\n')}`);
+  if(k==='svedectvi')await type(`<span class="c">▸ SVĚDECTVÍ</span>\n${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}`);
+  if(k==='poznamka')await type(`<span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>\n  <span class="y">${esc(f.note)}</span>`);
+  if(k==='stav')line(`stav: <span class="${stOf(db,n)[1]}">${stOf(db,n)[0]}</span>`);
+  busy=false;
+}
+async function solve(){
+  const f=curFile;if(isSolved(f.db,f.n))return line('<span class="d">tenhle případ už je vyřešený ✓</span>');
+  busy=true;for(const t of ['ověřuji důkazy …','porovnávám svědectví …','podepisuji spis …']){line('<span class="d">'+t+'</span>');await sleep(450)}
+  solved[f.db+'#'+f.n]=Date.now();localStorage.setItem('spisy_solved',JSON.stringify(solved));
+  await type(`<span class="w">══════════════════════════════</span>
+<span class="w">  ✅ PŘÍPAD #${pad(f.n)} VYŘEŠEN</span>
+<span class="w">══════════════════════════════</span>
+<span class="d">vyřešeno ${Object.keys(solved).filter(k=>k.startsWith(f.db+'#')).length} spisů v „${esc(f.db)}“</span>`,10);busy=false;
+}
 async function listFiles(db,a,b){
-  openDb=db;lastList=[];line(`<span class="d">načítám databázi „${esc(db)}“ …</span>`);await sleep(300);
+  openDb=db;curFile=null;setPs();lastList=[];line(`<span class="d">načítám databázi „${esc(db)}“ …</span>`);await sleep(300);
   line(`<span class="y">📁 ${esc(db)}/  (${b-a+1} složek)</span>  <span class="d">klikni na složku nebo napiš: open ČÍSLO</span>`);
   let h='';for(let n=a;n<=b;n++){const f=genFile(db,n);lastList.push(n);
-    h+=`<span class="dir" data-n="${n}">spis_${pad(n)}/</span> <span class="d">${esc(f.corrupt?'▓▒░ POŠKOZENO':f.name)}</span> <span class="${f.st[1]}">${f.st[0]}</span>\n`}
+    h+=`<span class="dir" data-n="${n}">spis_${pad(n)}/</span> <span class="d">${esc(f.corrupt?'▓▒░ POŠKOZENO':f.name)}</span> <span class="${stOf(db,n)[1]}">${stOf(db,n)[0]}</span>\n`}
   await type(h,40);
 }
 function help(){line(`<span class="w">PŘÍKAZY</span>
   file NÁZEV 1-75   vytvoří databázi a ukáže složky 1–75
   file NÁZEV 12     rovnou otevře spis 12
   open 12           otevře spis z poslední databáze
+  id, foto, info, posledni, dukazy, svedectvi, poznamka, stav
+                    ukáže část otevřeného spisu
+  vyřešeno          vyřeší otevřený spis
+  zpet              zavře spis
   random            otevře náhodný spis
   search SLOVO      najde spisy podle jména, města nebo důkazu
   ls                vypíše poslední databázi znovu
   clear             vyčistí obrazovku
   date              čas a datum
-<span class="d">Stejný název + číslo = vždy stejný spis. Jiný název = úplně jiní lidé.</span>`)}
+<span class="d">Všechny spisy začínají jako NEVYŘEŠENO. Stejný název + číslo = vždy stejný spis.</span>`)}
 async function run(c){
   const p=c.trim().split(/\s+/),k=(p[0]||'').toLowerCase();
   if(!k)return;
+  const nk=norm(k);
+  if(curFile&&SECT[nk])return showSect(nk);
+  if(['vyreseno','vyreseno.','vyresit','solve'].includes(nk)){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return solve()}
+  if(['zpet','back','exit','..'].includes(nk)||(k==='cd'&&p[1]==='..')){curFile=null;setPs();return line('<span class="d">spis zavřen</span>')}
   if(k==='help'||k==='?')return help();
   if(k==='clear'||k==='cls'){out.innerHTML='';return}
   if(k==='date')return line(new Date().toLocaleString('cs-CZ'));
@@ -120,7 +146,7 @@ cmd.addEventListener('keydown',async e=>{
   if(e.key==='ArrowUp'&&hi>0){cmd.value=hist[--hi];e.preventDefault()}
   if(e.key==='ArrowDown'){hi=Math.min(hist.length,hi+1);cmd.value=hist[hi]||''}
 });
-out.addEventListener('click',e=>{const d=e.target.closest('.dir');if(d&&!busy){line(`<span class="d">agent@spisy:~$</span> open ${d.dataset.n}`);showFile(openDb,+d.dataset.n)}});
+out.addEventListener('click',e=>{const d=e.target.closest('.dir');if(d&&!busy&&d.dataset.s){line(`<span class="d">${document.getElementById('ps').textContent}</span> ${d.dataset.s}`);return run(d.dataset.s)}if(d&&!busy){line(`<span class="d">agent@spisy:~$</span> open ${d.dataset.n}`);showFile(openDb,+d.dataset.n)}});
 T.addEventListener('click',e=>{if(!e.target.closest('.dir')&&!getSelection().toString())cmd.focus()});
 (async()=>{await type(`<span class="w">SPISY.exe v${VERSION}</span>  ·  archiv nevyřešených případů
 <span class="d">[ok] připojení k archivu
