@@ -20,11 +20,19 @@ body:after{content:'';position:fixed;inset:0;pointer-events:none;background:repe
 #sp .msg{height:16px;color:#0e7490}.ol{display:inline-block;width:100%;max-width:260px;height:6px;border:1px solid #22d3ee;margin:2px 0}.ol i{display:block;height:100%;background:#22d3ee;width:0}
 body.gl #t{animation:sh .12s 6;filter:hue-rotate(250deg) contrast(1.6)}@keyframes sh{50%{transform:translate(3px,-2px) skewX(4deg)}}
 #al{position:fixed;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#7f1d1d;color:#fff;font:bold 22px ui-monospace,monospace;text-align:center;animation:fl .35s infinite;white-space:pre}@keyframes fl{50%{background:#000;color:#f87171}}
+#er{position:fixed;inset:0;z-index:9;font:15px ui-monospace,monospace;white-space:pre-wrap;padding:28px;overflow:hidden}
+#er.bs{background:#0b3fb3;color:#fff}#er.kp{background:#000;color:#f87171}#er.nos{background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;text-align:center}
+#er.nos:before{content:'';position:absolute;inset:-50%;background:repeating-radial-gradient(#000 0 1px,#fff 2px 3px,#333 4px);opacity:.35;animation:nz .08s steps(3) infinite}@keyframes nz{50%{transform:translate(7%,-5%)}}
+#er.del{background:#000;color:#22c55e}
+body.tear #t{clip-path:polygon(0 0,100% 0,100% 38%,0 38%,0 42%,100% 42%,100% 100%,0 100%);transform:skewX(-8deg)}
+body.rgb #t{text-shadow:-3px 0 #f00,3px 0 #0ff;animation:sh .1s 8}
+body.inv{filter:invert(1)}body.flip #t{transform:rotate(180deg)}
+body.fl #t{animation:fl2 .07s 10}@keyframes fl2{50%{opacity:0}}
 </style></head><body>
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.8';
+const VERSION='1.9';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -101,6 +109,7 @@ const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const photo=(f,col)=>`<img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(f.db+'-'+f.n)}&backgroundColor=${col}">`;
 async function showFile(db,n){
   const f=getF(db,n);busy=true;const st=stOf(db,n);
+  if(Math.random()<.12){line(`<span class="r glitch">ERROR 0x${hex()}: spis se nepodařilo načíst… opakuji</span>`);await bigGlitch();await sleep(900)}
   if(isLocked(f)){openDb=db;line(`<span class="r">🔒 SPIS ${esc(fname(f))} JE ZAŠIFROVANÝ</span>`);const L=line('');const t0=Date.now();
     const msgs=['rozbaluji '+fname(f)+'.zip','dešifruji AES-256','obnovuji poškozená data','skládám fotky','ověřuji podpis Orion'];
     while(Date.now()-t0<20000){const p=Math.min(100,Math.floor((Date.now()-t0)/200));const b=Math.round(p/5);L.innerHTML=`<span class="c">[${'█'.repeat(b)}${'░'.repeat(20-b)}] ${p} %</span> <span class="d">${msgs[Math.min(4,Math.floor(p/20))]}…</span>`;T.scrollTop=1e9;await sleep(200)}
@@ -231,6 +240,7 @@ async function run(c){
   const nk=norm(k);
   if(nk==='stav'&&p.length>1){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return setSt([c.trim().slice(5).toUpperCase(),'y'])}
   {const w=norm(c.trim()).replace(/[.!]+$/,'').replace(/\s+/g,'');if(w in STW){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return setSt(STW[w])}}
+  if(nk==='crash'||nk==='error')return errScreen();
   if(hackP){const h=hackP;hackP=null;if(norm(c.trim())===norm(h.code)&&Date.now()<h.until)return hackWin();return alarm('NEÚSPĚŠNÝ HACK')}
   if(pend){const f=pend;pend=null;if(norm(c.trim())===norm(f.pw)){unl[f.db+'#'+f.n]=1;localStorage.setItem('spisy_unl',JSON.stringify(unl));wrong=0;line('<span class="w">🔓 heslo správně</span>');return showFile(f.db,f.n)}
     wrong++;if(wrong>=3){wrong=0;return alarm('3× ŠPATNÉ HESLO')}return line(`<span class="r">✖ špatné heslo (${wrong}/3)</span>`)}
@@ -269,7 +279,19 @@ cmd.addEventListener('keydown',async e=>{
 });
 out.addEventListener('click',e=>{const d=e.target.closest('.dir');if(d&&!busy&&d.dataset.s){line(`<span class="d">${document.getElementById('ps').textContent}</span> ${d.dataset.s}`);return run(d.dataset.s)}if(d&&!busy){line(`<span class="d">agent@spisy:~$</span> open ${d.dataset.n}`);showFile(openDb,+d.dataset.n)}});
 T.addEventListener('click',e=>{if(!e.target.closest('.dir')&&!getSelection().toString())cmd.focus()});
-function glitchLoop(){setTimeout(async()=>{if(!busy){document.body.classList.add('gl');if(Math.random()<.35)line('<span class="r glitch">'+['…vidíme tě, agente…','ORION VÍ, KDE JSI','neotvírej spis 047','pomoc… jsem pořád uvnitř','signál narušen'][Math.floor(Math.random()*5)]+'</span>');await sleep(700);document.body.classList.remove('gl')}glitchLoop()},40000+Math.random()*50000)}
+
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const hex=()=>Math.floor(Math.random()*0xffffffff).toString(16).toUpperCase().padStart(8,'0');
+async function errScreen(kind){busy=true;const d=document.createElement('div');d.id='er';kind=kind||rnd(['bs','kp','nos','del']);d.className=kind;document.body.appendChild(d);
+  if(kind==='bs'){d.textContent=`:(\n\nORION OS narazil na problém a musí se restartovat.\n\nKÓD CHYBY: SUBJECT_ESCAPED_KERNEL\nPROCES: spisy.exe\n\n`;for(let p=0;p<=100;p+=Math.ceil(Math.random()*9)){d.textContent=d.textContent.replace(/\d+ % hotovo$/,'')+(p+' % hotovo');await sleep(120)}}
+  else if(kind==='kp'){let t='KERNEL PANIC – ORION-7\n\n';for(let i=0;i<22;i++){t+=`0x${hex()}  ${rnd(['stack_overflow','mem_corrupt','subject.dll','chimera_core','null_pointer','UNAUTHORIZED'])}  [${rnd(['FAIL','FAIL','??','ERR'])}]\n`;d.textContent=t;await sleep(90)}d.textContent+='\n⚠ PŘETEČENÍ PAMĚTI… restart';await sleep(1200)}
+  else if(kind==='nos'){d.textContent='📡 SIGNÁL ZTRACEN\n\nhledám server ORION-7…';await sleep(2600);d.textContent='📡 SIGNÁL ZTRACEN\n\n…někdo se připojil k tvému terminálu';await sleep(1600)}
+  else{let t='';const fs=['spis_047.dat','subjekty.db','chimera_log.txt','svedectvi.zip','fotky/*','omega.db'];for(const x of fs){t+=`> rm -rf ${x} … SMAZÁNO\n`;d.textContent=t;await sleep(420)}d.textContent+='\n…žert 😈 zálohy jsou v pořádku';await sleep(1400)}
+  d.remove();line(`<span class="r glitch">⚠ ERROR 0x${hex()} · systém obnoven</span>`);busy=false}
+async function bigGlitch(){const k=rnd(['tear','rgb','inv','flip','fl','scr']);
+  if(k==='scr'){const ds=[...out.children].slice(-8);const old=ds.map(d=>d.innerHTML);ds.forEach(d=>d.textContent=d.textContent.replace(/\S/g,()=>rnd('▓▒░█#@$%&01'.split(''))));await sleep(900);ds.forEach((d,i)=>d.innerHTML=old[i]);return}
+  document.body.classList.add(k);await sleep(k==='flip'?900:600);document.body.classList.remove(k)}
+function glitchLoop(){setTimeout(async()=>{if(!busy){document.body.classList.add('gl');if(Math.random()<.35)line('<span class="r glitch">'+['…vidíme tě, agente…','ORION VÍ, KDE JSI','neotvírej spis 047','pomoc… jsem pořád uvnitř','signál narušen'][Math.floor(Math.random()*5)]+'</span>');await sleep(700);document.body.classList.remove('gl');const r=Math.random();if(r<.15)await errScreen();else if(r<.55)await bigGlitch()}glitchLoop()},30000+Math.random()*40000)}
 async function splash(){const b=document.getElementById('spb'),m=document.getElementById('spm'),sp=document.getElementById('sp');
   const st=['spouštím systém ORION…','ověřuji identitu agenta…','skenuji otisk prstu…','připojuji se k serveru ORION-7…','dešifruji archiv…','načítám spisy…','obcházím bezpečnostní protokol…','přístup povolen ✓'];
   for(let i=0;i<st.length;i++){m.textContent=st[i];b.style.width=Math.round((i+1)/st.length*100)+'%';await sleep(850+Math.random()*450)}
