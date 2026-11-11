@@ -28,11 +28,13 @@ body.tear #t{clip-path:polygon(0 0,100% 0,100% 38%,0 38%,0 42%,100% 42%,100% 100
 body.rgb #t{text-shadow:-3px 0 #f00,3px 0 #0ff;animation:sh .1s 8}
 body.inv{filter:invert(1)}body.flip #t{transform:rotate(180deg)}
 body.fl #t{animation:fl2 .07s 10}@keyframes fl2{50%{opacity:0}}
-</style></head><body>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}#ps{white-space:nowrap;flex:none}
+@media(max-width:600px){html,body{font-size:12.5px}#t{padding:10px 10px 60px}.idc{font-size:11px}#er{font-size:12px}}
+.upd{color:#f0abfc}</style></head><body>
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.9';
+const VERSION='2.0';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -99,10 +101,12 @@ let curFile=null;
 const solved=JSON.parse(localStorage.getItem('spisy_solved')||'{}');
 const isSolved=(db,n)=>!!solved[db+'#'+n];
 const cst=JSON.parse(localStorage.getItem('spisy_stav')||'{}');
+function effAlive(f){const o=cst[f.db+'#'+f.n];if(!o)return f.omega?true:f.alive;const t=o[0];if(/MRTV|ZEMŘ/.test(t))return false;if(/ŽIV|PŘEŽIL|NALEZEN|CHYCEN|ZAJAT|IZOLAC|UPRCHL|NEZVĚST/.test(t))return true;return f.omega?true:f.alive}
 const stOf=(db,n)=>cst[db+'#'+n]||(isSolved(db,n)?['POTVRZENO ✓','w']:['NEPOTVRZENO','y']);
 const STW={nalezen:['NALEZEN','w'],nalezena:['NALEZENA','w'],chycen:['CHYCEN','c'],chycena:['CHYCENA','c'],zajat:['ZAJAT','c'],mrtvy:['MRTVÝ','r'],mrtva:['MRTVÁ','r'],zemrel:['ZEMŘEL','r'],zemrela:['ZEMŘELA','r'],utekl:['UPRCHL','r'],utekla:['UPRCHLA','r'],uprchl:['UPRCHL','r'],uprchla:['UPRCHLA','r'],nezvestny:['NEZVĚSTNÝ','y'],nezvestna:['NEZVĚSTNÁ','y'],zivy:['ŽIVÝ','w'],ziva:['ŽIVÁ','w'],prezil:['PŘEŽIL','w'],prezila:['PŘEŽILA','w'],izolace:['V IZOLACI','c'],utajeno:['UTAJENO','c'],nepotvrzeno:null};
 function setSt(st){const f=curFile,key=f.db+'#'+f.n;if(st===null){delete cst[key];delete solved[key];localStorage.setItem('spisy_solved',JSON.stringify(solved))}else cst[key]=st;localStorage.setItem('spisy_stav',JSON.stringify(cst));
-  line(`<span class="w">✎ stav spisu ${esc(fname(f))} změněn na </span><span class="${stOf(f.db,f.n)[1]}">${stOf(f.db,f.n)[0]}</span>`)}
+  const a=effAlive(f),was=f.omega?true:f.alive;
+  line(`<span class="w">✎ stav spisu ${esc(fname(f))} změněn na </span><span class="${stOf(f.db,f.n)[1]}">${stOf(f.db,f.n)[0]}</span>`+(a!==was?`\n<span class="upd">${a?'⚠ subjekt vedený jako mrtvý je ŽIVÝ – záznam o úmrtí zrušen':'⚠ subjekt vedený jako živý je MRTVÝ – zapsáno datum úmrtí '+new Date().toLocaleDateString('cs-CZ')}</span>`:'')+`\n<span class="d">otevři spis znovu a uvidíš nový záznam</span>`)}
 function setPs(){document.getElementById('ps').textContent=curFile?`agent@spisy:~/${curFile.db}/spis_${pad(curFile.n)}$`:(openDb?`agent@spisy:~/${openDb}$`:'agent@spisy:~$')}
 const SECT={id:'🪪 id',foto:'📷 foto',info:'📋 info',posledni:'📍 posledni',dukazy:'🔎 dukazy',svedectvi:'🗣️ svedectvi',poznamka:'📝 poznamka',stav:'⚖️ stav'};
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -134,9 +138,9 @@ ${f.omega?`<span class="r">▸ ÚTĚK · SEKTOR OMEGA</span>
   Naposledy .... ${esc(f.seen)}
   Nebezpečí .... <span class="r">${'█'.repeat(f.danger)}${'░'.repeat(5-f.danger)}</span> ${f.danger}/5
   Odměna ....... ${f.reward.toLocaleString('cs-CZ')} Kč (od Orion Corp)
-  <span class="d">(nehlásit policii)</span>`:`<span class="c">▸ VÝSLEDEK</span>
-  Přežil${f.fem?'a':''} ..... ${f.alive?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
-${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}`}
+  <span class="d">(nehlásit policii)</span>${cst[f.db+'#'+f.n]&&/NALEZEN|CHYCEN|ZAJAT|IZOLAC/.test(stOf(f.db,f.n)[0])?`\n  <span class="w">✔ subjekt zadržen · odměna vyplacena agentovi</span>`:cst[f.db+'#'+f.n]&&/MRTV|ZEMŘ/.test(stOf(f.db,f.n)[0])?`\n  <span class="r">✖ subjekt zneškodněn v terénu</span>`:''}`:`<span class="c">▸ VÝSLEDEK</span>
+  Přežil${f.fem?'a':''} ..... ${effAlive(f)?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
+${effAlive(f)?(f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Aktuální stav  <span class="upd">⚠ znovu oživen${f.fem?'a':''} sérem ORN-9 · pod dohledem</span>\n  <span class="d">(dřív zapsáno úmrtí ${f.death} – záznam byl chybný)</span>`):(f.alive?`  Datum úmrtí .. ${new Date().toLocaleDateString('cs-CZ')}\n  Příčina ...... <span class="r">nahlášeno agentem v terénu</span>`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`)}`}${cst[f.db+'#'+f.n]?`\n  <span class="upd">✎ záznam upraven agentem · nový stav: ${esc(stOf(f.db,f.n)[0])}</span>`:''}
 <span class="c">▸ POZNÁMKA</span>
   <span class="y">${esc(f.note)}</span>
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
