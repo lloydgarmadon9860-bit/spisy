@@ -18,11 +18,13 @@ body:after{content:'';position:fixed;inset:0;pointer-events:none;background:repe
 #sp .nm{font-size:26px;letter-spacing:8px;color:#e5e7eb}#sp .sub{letter-spacing:3px;color:#0e7490;font-size:11px}
 #sp .bar{width:240px;height:8px;border:1px solid #22d3ee;border-radius:4px;overflow:hidden}#sp .bar i{display:block;height:100%;width:0;background:#22d3ee;transition:width .25s}
 #sp .msg{height:16px;color:#0e7490}.ol{display:inline-block;width:100%;max-width:260px;height:6px;border:1px solid #22d3ee;margin:2px 0}.ol i{display:block;height:100%;background:#22d3ee;width:0}
+body.gl #t{animation:sh .12s 6;filter:hue-rotate(250deg) contrast(1.6)}@keyframes sh{50%{transform:translate(3px,-2px) skewX(4deg)}}
+#al{position:fixed;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#7f1d1d;color:#fff;font:bold 22px ui-monospace,monospace;text-align:center;animation:fl .35s infinite;white-space:pre}@keyframes fl{50%{background:#000;color:#f87171}}
 </style></head><body>
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.5';
+const VERSION='1.6';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -68,8 +70,21 @@ function genAlpha(n){
     start:`${d}. ${mo}. ${y}`,alive,state:g(P(r,ALIVE)).replace('{c}',1+Math.floor(r()*30)),death:`${1+Math.floor(r()*28)}. ${((dm-1)%12)+1}. ${dy}`,cause:g(P(r,DEAD)),sci:P(r,SCI),
     note:P(r,ANOTE).replace('{n}',String(1+Math.floor(r()*75)).padStart(3,'0')),id:'ORN-A-'+String(n).padStart(3,'0'),h:150+Math.floor(r()*45),eyes:P(r,['jantarové','žluté','zelené svítící','červené','modré','černé']),corrupt:false};
 }
-const getF=(db,n)=>db==='alpha'?genAlpha(n):genFile(db,n);
 const fname=f=>norm(f.name).replace(/\s+/g,'_');
+const SEEN=['kanalizace pod Ostravou','opuštěný důl Michal','les u Beskyd','střecha nemocnice','tunel metra (nedostavěný)','přehrada Šance','staré nádraží','zoo, výběh vlků'];
+const PW=['vlk','stin','luna','chimera','orion','sum','noc','krev','kost','oko','pazour','tlapa'];
+const unl=JSON.parse(localStorage.getItem('spisy_unl')||'{}');
+function getF(db,n){
+  let f;if(db==='alpha')f=genAlpha(n);
+  else if(db==='omega'){f=genAlpha(n+500);const r=rng(hash('omega'+n));Object.assign(f,{db:'omega',omega:1,alive:true,id:'ORN-Ω-'+String(n).padStart(3,'0'),seen:P(r,SEEN),esc:`${1+Math.floor(r()*28)}. ${1+Math.floor(r()*12)}. 2026`,danger:1+Math.floor(r()*5),reward:(1+Math.floor(r()*50))*10000})}
+  else f=genFile(db,n);
+  const L=lockOf(db,n);if(L){f.locked=1;f.pw=L.pw;f.hintIn=L.hintIn}
+  const k=[...Array(75)].map((_,i)=>i+1).find(k=>{const x=lockOf(db,k);return x&&x.hintIn===n});if(k)f.hintFor={k,pw:lockOf(db,k).pw};
+  return f}
+function lockOf(db,n){const h=hash(db+'!lock'+n);if(n>75||h%8)return null;let hi=((n*7+3)%75)+1;if(hi===n||hash(db+'!lock'+hi)%8===0)hi=((n*13+5)%75)+1;return{pw:PW[(h>>>5)%PW.length]+((h>>>9)%90+10),hintIn:hi}}
+const isLocked=f=>f.locked&&!unl[f.db+'#'+f.n];
+let pend=null,hackP=null,wrong=0;
+async function alarm(t){busy=true;const d=document.createElement('div');d.id='al';d.textContent='⚠ ALARM ⚠\n'+t+'\nORION BEZPEČNOST TĚ SLEDUJE';document.body.appendChild(d);await sleep(4000);d.remove();line('<span class="r">⚠ systém uzamčen na 10 s…</span>');await sleep(10000);line('<span class="d">systém znovu dostupný</span>');busy=false}
 function pad(n){return String(n).padStart(3,'0')}
 function face(f){const e=f.fem?'(◕ ◕)':'(• •)';return ` ┌────────┐\n │ ${f.corrupt?'▓▒░▓▒░':' '+e+' '}│\n │  ${f.corrupt?'░▓▒░':'\\__/'}  │\n └────────┘`}
 let curFile=null;
@@ -81,10 +96,12 @@ const SECT={id:'🪪 id',foto:'📷 foto',info:'📋 info',posledni:'📍 posled
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const photo=(f,col)=>`<img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(f.db+'-'+f.n)}&backgroundColor=${col}">`;
 async function showFile(db,n){
-  const f=getF(db,n);curFile=f;openDb=db;setPs();busy=true;const st=stOf(db,n);
+  const f=getF(db,n);busy=true;const st=stOf(db,n);
+  if(isLocked(f)){openDb=db;line(`<span class="r">🔒 SPIS ${esc(fname(f))} JE UTAJEN</span>\n<span class="d">heslo najdeš v jiném spisu… napiš heslo:</span>`);pend=f;busy=false;return}
+  curFile=f;openDb=db;setPs();
   line(`<span class="d">◆ ORION CORP · otevírám ${esc(fname(f))}/ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=3+Math.random()*5){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
   if(f.alpha){
-    line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br><span class="st ${f.alive?'w':'r'}">${f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
+    line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · ${f.omega?'UPRCHLÝ ':''}SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br><span class="st ${f.omega?'r':f.alive?'w':'r'}">${f.omega?'NA ÚTĚKU':f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
     await type(`<span class="c">◆ ORION CORP · PROJEKT CHIMÉRA · PŘÍSNĚ TAJNÉ</span>
   ID subjektu .. <span class="w">${f.id}</span>
   Jméno ........ <span class="w">${esc(f.name)}</span>
@@ -96,11 +113,16 @@ async function showFile(db,n){
   Vedoucí ...... ${f.sci}
   Proměna na ... <span class="y">${f.emo} ${esc(f.animal)}</span>
   Fáze ......... ${f.phase}/4 · dokončeno ${f.pct} %
-<span class="c">▸ VÝSLEDEK</span>
+${f.omega?`<span class="r">▸ ÚTĚK · SEKTOR OMEGA</span>
+  Utekl${f.fem?'a':''} ..... ${f.esc}
+  Naposledy .... ${esc(f.seen)}
+  Nebezpečí .... <span class="r">${'█'.repeat(f.danger)}${'░'.repeat(5-f.danger)}</span> ${f.danger}/5
+  Odměna ....... ${f.reward.toLocaleString('cs-CZ')} Kč (od Orion Corp)
+  <span class="d">(nehlásit policii)</span>`:`<span class="c">▸ VÝSLEDEK</span>
   Přežil${f.fem?'a':''} ..... ${f.alive?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
-${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}
+${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}`}
 <span class="c">▸ POZNÁMKA</span>
-  <span class="y">${esc(f.note)}</span>
+  <span class="y">${esc(f.note)}</span>${f.hintFor?`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,f.hintFor.k)))}: ${f.hintFor.pw}“</span>`:''}
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
     busy=false;return}
@@ -121,7 +143,7 @@ ${f.clues.map(c=>'  • '+esc(c)).join('\n')}
 <span class="c">▸ SVĚDECTVÍ</span>
 ${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}
 <span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>
-  <span class="y">${esc(f.note)}</span>
+  <span class="y">${esc(f.note)}</span>${f.hintFor?`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,f.hintFor.k)))}: ${f.hintFor.pw}“</span>`:''}
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
   busy=false;
@@ -157,15 +179,23 @@ async function solve(){
 <span class="w">══════════════════════════════</span>
 <span class="d">potvrzeno ${Object.keys(solved).filter(k=>k.startsWith(f.db+'#')).length} spisů v „${esc(f.db)}“</span>`,10);busy=false;
 }
+async function hack(){busy=true;line('<span class="r">» připojuji se k ORION-7 přes zadní vrátka…</span>');
+  for(let i=0;i<10;i++){line('<span class="d">0x'+(hash(String(Math.random()))>>>0).toString(16).padStart(8,'0')+'  '+['bypass firewall','inject ORN.dll','crack hash','spoof IP','dump memory'][i%5]+' … ok</span>');await sleep(250)}
+  const code=[...Array(3)].map(()=>Math.random().toString(36).slice(2,4).toUpperCase()).join('-');
+  line(`<span class="y">⚡ BEZPEČNOSTNÍ ZÁMEK! Přepiš kód do 10 s: </span><span class="w">${code}</span>`);hackP={code,until:Date.now()+10000};busy=false}
+async function hackWin(){await type('<span class="w">✔ ROOT PŘÍSTUP ZÍSKÁN</span>');const db=openDb||'alpha';const L=[...Array(75)].map((_,i)=>i+1).filter(n=>{const x=getF(db,n);return isLocked(x)});
+  if(!L.length)return line('<span class="d">v této databázi nejsou žádné zamčené spisy</span>');
+  const n=L[Math.floor(Math.random()*L.length)],f=getF(db,n);unl[db+'#'+n]=1;localStorage.setItem('spisy_unl',JSON.stringify(unl));line(`<span class="c">🔓 odemčen spis ${esc(fname(f))}</span>`)}
 async function listFiles(db,a,b){
   openDb=db;curFile=null;setPs();lastList=[];line(`<span class="d">◆ ORION CORP · načítám databázi „${esc(db)}“ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=3+Math.random()*4){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
+  if(db==='omega')await type(`<span class="r">Ω SEKTOR OMEGA · UPRCHLÉ SUBJEKTY · PŘÍSTUP JEN PRO VEDENÍ</span>`,20);
   if(db==='alpha')await type(`<span class="c">╔══════════════════════════════╗
 ║   ◆ ORION CORP ◆  PROJEKT CHIMÉRA   ║
 ╚══════════════════════════════╝</span>
 <span class="r">PŘÍSNĚ TAJNÉ · subjekty experimentů</span>`,20);
   line(`<span class="y">📁 ${esc(db)}/  (${b-a+1} složek)</span>  <span class="d">napiš jméno ze složky (např. ${esc(fname(getF(db,a)))}) nebo na ni klikni</span>`);
   let h='';for(let n=a;n<=b;n++){const f=getF(db,n);lastList.push(n);
-    h+=`<span class="dir" data-n="${n}">📁 ${esc(f.corrupt?'▓▒░_POŠKOZENO':fname(f))}/</span>${f.alpha?' <span class="d">'+f.emo+'</span>':''}\n`}
+    h+=`<span class="dir" data-n="${n}">📁 ${esc(f.corrupt?'▓▒░_POŠKOZENO':fname(f))}/</span>${isLocked(f)?' <span class="r">🔒</span>':''}${f.alpha?' <span class="d">'+f.emo+'</span>':''}\n`}
   await type(h,40);
 }
 function help(){line(`<span class="w">PŘÍKAZY</span>
@@ -175,6 +205,8 @@ function help(){line(`<span class="w">PŘÍKAZY</span>
   file NÁZEV 12     rovnou otevře spis 12
   open 12           otevře spis z poslední databáze
   vyřešeno          potvrdí otevřený spis
+  hack              zkus se nabourat do serveru Orion
+  🔒 spisy           potřebují heslo, najdeš ho v jiném spisu
   zpet              zavře spis
   random            otevře náhodný spis
   search SLOVO      najde spisy podle jména, města nebo důkazu
@@ -186,6 +218,16 @@ async function run(c){
   const p=c.trim().split(/\s+/),k=(p[0]||'').toLowerCase();
   if(!k)return;
   const nk=norm(k);
+  if(hackP){const h=hackP;hackP=null;if(norm(c.trim())===norm(h.code)&&Date.now()<h.until)return hackWin();return alarm('NEÚSPĚŠNÝ HACK')}
+  if(pend){const f=pend;pend=null;if(norm(c.trim())===norm(f.pw)){unl[f.db+'#'+f.n]=1;localStorage.setItem('spisy_unl',JSON.stringify(unl));wrong=0;line('<span class="w">🔓 heslo správně</span>');return showFile(f.db,f.n)}
+    wrong++;if(wrong>=3){wrong=0;return alarm('3× ŠPATNÉ HESLO')}return line(`<span class="r">✖ špatné heslo (${wrong}/3)</span>`)}
+  if(k==='hack')return hack();
+  if(k==='orion')return type(`<span class="c">◆ ORION CORP ◆</span>
+Založeno 1998. Oficiálně: výzkum léků.
+Neoficiálně: <span class="red">████████</span> PROJEKT CHIMÉRA — spojování lidské a zvířecí DNA.
+Sérum ORN-7. Sektory: ALPHA (subjekty), OMEGA (<span class="r">uprchlí</span>), ZERO (<span class="red">█████</span>).
+<span class="d">tip: zkus file omega 1-75</span>`);
+  if(k==='zero'||(k==='file'&&norm(p[1]||'')==='zero'))return alarm('SEKTOR ZERO NEEXISTUJE');
   if(curFile&&SECT[nk])return showFile(curFile.db,curFile.n);
   if(['vyreseno','potvrzeno','potvrdit','vyreseno.','vyresit','solve'].includes(nk)){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return solve()}
   if(['zpet','back','exit','..'].includes(nk)||(k==='cd'&&p[1]==='..')){curFile=null;setPs();return line('<span class="d">spis zavřen</span>')}
@@ -214,11 +256,12 @@ cmd.addEventListener('keydown',async e=>{
 });
 out.addEventListener('click',e=>{const d=e.target.closest('.dir');if(d&&!busy&&d.dataset.s){line(`<span class="d">${document.getElementById('ps').textContent}</span> ${d.dataset.s}`);return run(d.dataset.s)}if(d&&!busy){line(`<span class="d">agent@spisy:~$</span> open ${d.dataset.n}`);showFile(openDb,+d.dataset.n)}});
 T.addEventListener('click',e=>{if(!e.target.closest('.dir')&&!getSelection().toString())cmd.focus()});
+function glitchLoop(){setTimeout(async()=>{if(!busy){document.body.classList.add('gl');if(Math.random()<.35)line('<span class="r glitch">'+['…vidíme tě, agente…','ORION VÍ, KDE JSI','neotvírej spis 047','pomoc… jsem pořád uvnitř','signál narušen'][Math.floor(Math.random()*5)]+'</span>');await sleep(700);document.body.classList.remove('gl')}glitchLoop()},40000+Math.random()*50000)}
 async function splash(){const b=document.getElementById('spb'),m=document.getElementById('spm'),sp=document.getElementById('sp');
   const st=['spouštím systém ORION…','ověřuji identitu agenta…','skenuji otisk prstu…','připojuji se k serveru ORION-7…','dešifruji archiv…','načítám spisy…','obcházím bezpečnostní protokol…','přístup povolen ✓'];
   for(let i=0;i<st.length;i++){m.textContent=st[i];b.style.width=Math.round((i+1)/st.length*100)+'%';await sleep(850+Math.random()*450)}
   await sleep(900);sp.style.opacity=0;await sleep(600);sp.remove();cmd.focus()}
-(async()=>{await splash();await type(`<span class="c">◆ ORION CORP</span> · interní terminál\n<span class="w">SPISY.exe v${VERSION}</span>  ·  archiv nevyřešených případů
+(async()=>{await splash();glitchLoop();await type(`<span class="c">◆ ORION CORP</span> · interní terminál\n<span class="w">SPISY.exe v${VERSION}</span>  ·  archiv nevyřešených případů
 <span class="d">[ok] připojení k archivu
 [ok] dešifrování
 [!!] některé spisy jsou poškozené</span>
