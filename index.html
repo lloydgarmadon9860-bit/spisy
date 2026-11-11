@@ -16,7 +16,7 @@ body:after{content:'';position:fixed;inset:0;pointer-events:none;background:repe
 </style></head><body>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.2';
+const VERSION='1.3';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -48,22 +48,76 @@ function genFile(db,n){
   return {n,db,born:`${1+Math.floor(r()*28)}. ${1+Math.floor(r()*12)}. ${year-age0}`,name:nm+' '+sur,fem,age:age0,job:P(r,JOB),city:P(r,CITY),place:P(r,PLACE),st,date:`${day}. ${mon}. ${year}`,time:`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`,clues,w,
     h:150+Math.floor(r()*45),eyes:P(r,['hnědé','modré','zelené','šedé','oříškové']),note:P(r,NOTE).replace('{n}',String(other).padStart(3,'0')),corrupt:r()<.08,redact:r()<.3,id:'CZ-'+(hash(db+n)%90000+10000)};
 }
+const ANI=[['vlk','🐺'],['liška','🦊'],['rys','🐱'],['sova','🦉'],['havran','🐦‍⬛'],['netopýr','🦇'],['králík','🐰'],['tygr','🐯'],['žralok','🦈'],['had','🐍'],['jelen','🦌'],['medvěd','🐻'],['hyena','🐕'],['gepard','🐆'],['krysa','🐀'],['drak (nestabilní)','🐉'],['kočka','🐈'],['orel','🦅']];
+const ALIVE=['stabilní, drží se v cele B-{c}','v izolaci, nekomunikuje','mluví jen v noci','uprchl/a z laboratoře, hledá se','agresivní, přístup jen se svolením','přeložen/a do sektoru OMEGA','klidný/á, učí se znovu chodit','spolupracuje s Orion Corp (nedůvěryhodné)','pamatuje si svůj starý život','proměna pokračuje sama'];
+const DEAD=['tělo odmítlo cizí DNA','selhání srdce během fáze 3','kolaps během proměny','zemřel/a při pokusu o útěk','neznámá příčina, spis zapečetěn','přehřátí v inkubátoru','nadměrná dávka séra ORN-7'];
+const SCI=['Dr. Hartmann','Dr. Volková','Dr. Kessler','Dr. Brandt','Dr. Novotná','Prof. Ivanov','Dr. Reyes'];
+const ANOTE=['Subjekt reaguje na své staré jméno.','Proměna překročila 100 %. Pokračovat?','Někdo z personálu subjektu pomáhá.','Kamery v cele vypadávají každou noc ve 3:33.','Subjekt nakreslil mapu ven z laboratoře.','Vedení nařídilo všechny záznamy smazat.','Subjekt #{n} byl viděn ve stejné cele.','Sérum ORN-7 má vedlejší účinky, které tajíme.'];
+function genAlpha(n){
+  const r=rng(hash('alpha#orion#'+n));const fem=r()<.5;const nm=P(r,fem?F:M),sur=P(r,SUR)[fem?1:0];
+  const a=P(r,ANI),alive=r()<.6,y=2019+Math.floor(r()*7),mo=1+Math.floor(r()*12),d=1+Math.floor(r()*28),age=12+Math.floor(r()*40);
+  const g=t=>t.replace(/l\/a/g,fem?'la':'l').replace(/n\/a/g,fem?'na':'n').replace(/ý\/á/g,fem?'á':'ý');
+  const dm=mo+1+Math.floor(r()*6),dy=y+Math.floor((dm-1)/12);
+  return {n,db:'alpha',alpha:1,name:nm+' '+sur,fem,age,born:`${d}. ${mo}. ${y-age}`,city:P(r,CITY),animal:a[0],emo:a[1],pct:alive?40+Math.floor(r()*61):10+Math.floor(r()*80),phase:1+Math.floor(r()*4),
+    start:`${d}. ${mo}. ${y}`,alive,state:g(P(r,ALIVE)).replace('{c}',1+Math.floor(r()*30)),death:`${1+Math.floor(r()*28)}. ${((dm-1)%12)+1}. ${dy}`,cause:g(P(r,DEAD)),sci:P(r,SCI),
+    note:P(r,ANOTE).replace('{n}',String(1+Math.floor(r()*75)).padStart(3,'0')),id:'ORN-A-'+String(n).padStart(3,'0'),h:150+Math.floor(r()*45),eyes:P(r,['jantarové','žluté','zelené svítící','červené','modré','černé']),corrupt:false};
+}
+const getF=(db,n)=>db==='alpha'?genAlpha(n):genFile(db,n);
+const fname=f=>norm(f.name).replace(/\s+/g,'_');
 function pad(n){return String(n).padStart(3,'0')}
 function face(f){const e=f.fem?'(◕ ◕)':'(• •)';return ` ┌────────┐\n │ ${f.corrupt?'▓▒░▓▒░':' '+e+' '}│\n │  ${f.corrupt?'░▓▒░':'\\__/'}  │\n └────────┘`}
 let curFile=null;
 const solved=JSON.parse(localStorage.getItem('spisy_solved')||'{}');
 const isSolved=(db,n)=>!!solved[db+'#'+n];
-const stOf=(db,n)=>isSolved(db,n)?['VYŘEŠENO','w']:['NEVYŘEŠENO','r'];
+const stOf=(db,n)=>isSolved(db,n)?['POTVRZENO ✓','w']:['NEPOTVRZENO','y'];
 function setPs(){document.getElementById('ps').textContent=curFile?`agent@spisy:~/${curFile.db}/spis_${pad(curFile.n)}$`:(openDb?`agent@spisy:~/${openDb}$`:'agent@spisy:~$')}
 const SECT={id:'🪪 id',foto:'📷 foto',info:'📋 info',posledni:'📍 posledni',dukazy:'🔎 dukazy',svedectvi:'🗣️ svedectvi',poznamka:'📝 poznamka',stav:'⚖️ stav'};
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const photo=(f,col)=>`<img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(f.db+'-'+f.n)}&backgroundColor=${col}">`;
 async function showFile(db,n){
-  const f=genFile(db,n);curFile=f;openDb=db;setPs();busy=true;
-  line(`<span class="d">otevírám ${esc(db)}/spis_${pad(n)} …</span>`);await sleep(300);
+  const f=getF(db,n);curFile=f;openDb=db;setPs();busy=true;const st=stOf(db,n);
+  line(`<span class="d">otevírám ${esc(fname(f))}/ …</span>`);await sleep(300);
+  if(f.alpha){
+    line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br><span class="st ${f.alive?'w':'r'}">${f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
+    await type(`<span class="c">◆ ORION CORP · PROJEKT CHIMÉRA · PŘÍSNĚ TAJNÉ</span>
+  ID subjektu .. <span class="w">${f.id}</span>
+  Jméno ........ <span class="w">${esc(f.name)}</span>
+  Narozen/a .... ${f.born} (${f.age} let)
+  Původ ........ ${esc(f.city)}
+  Výška ........ ${f.h} cm · Oči: ${f.eyes}
+<span class="c">▸ EXPERIMENT</span>
+  Začátek ...... ${f.start}
+  Vedoucí ...... ${f.sci}
+  Proměna na ... <span class="y">${f.emo} ${esc(f.animal)}</span>
+  Fáze ......... ${f.phase}/4 · dokončeno ${f.pct} %
+<span class="c">▸ VÝSLEDEK</span>
+  Přežil${f.fem?'a':''} ..... ${f.alive?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
+${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}
+<span class="c">▸ POZNÁMKA</span>
+  <span class="y">${esc(f.note)}</span>
+  Stav spisu ... <span class="${st[1]}">${st[0]}</span>
+<span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
+    busy=false;return}
+  const cn=f.corrupt?f.name.replace(/[aeiouáéíóú]/gi,'█'):f.name;
   if(f.corrupt)await type(`<span class="r glitch">⚠ část spisu je poškozená ⚠</span>`);
-  await type(`<span class="y">📁 SPIS #${pad(n)} otevřen</span>  stav: <span class="${stOf(db,n)[1]}">${stOf(db,n)[0]}</span>
-Části: ${Object.values(SECT).map(x=>'<span class="dir" data-s="'+x.split(' ')[1]+'">'+x+'</span>').join('  ')}
-<span class="d">Napiš název části (např. foto). Až případ rozlouskneš, napiš: vyřešeno. Zpět: zpet</span>`,10);
+  line(`<div class="idc${f.corrupt?' cor':''}">${photo(f,'d1d5db')}<div style="flex:1;min-width:0"><div class="h">IDENTIFIKAČNÍ KARTA · ${f.id}</div><b>${esc(cn)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Bydliště: ${esc(f.city)}<br><span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
+  await type(`<span class="c">▸ ID</span>
+  Číslo ........ <span class="w">${f.id}</span>
+  Jméno ........ <span class="w">${esc(cn)}</span>
+  Narozen/a .... ${f.born} (${f.age} let)
+  Výška ........ ${f.h} cm · Oči: ${f.eyes}
+  Povolání ..... ${esc(f.job)}
+  Bydliště ..... ${esc(f.city)}
+<span class="c">▸ POSLEDNÍ ZÁZNAM</span>
+  ${f.date}, ${f.time} — ${esc(f.place)}${f.redact?' <span class="red">██████████</span>':''}
+<span class="c">▸ DŮKAZY</span>
+${f.clues.map(c=>'  • '+esc(c)).join('\n')}
+<span class="c">▸ SVĚDECTVÍ</span>
+${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}
+<span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>
+  <span class="y">${esc(f.note)}</span>
+  Stav spisu ... <span class="${st[1]}">${st[0]}</span>
+<span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
   busy=false;
 }
 async function showSect(k){
@@ -89,41 +143,45 @@ async function showSect(k){
   busy=false;
 }
 async function solve(){
-  const f=curFile;if(isSolved(f.db,f.n))return line('<span class="d">tenhle případ už je vyřešený ✓</span>');
+  const f=curFile;if(isSolved(f.db,f.n))return line('<span class="d">tenhle spis už je potvrzený ✓</span>');
   busy=true;for(const t of ['ověřuji důkazy …','porovnávám svědectví …','podepisuji spis …']){line('<span class="d">'+t+'</span>');await sleep(450)}
   solved[f.db+'#'+f.n]=Date.now();localStorage.setItem('spisy_solved',JSON.stringify(solved));
   await type(`<span class="w">══════════════════════════════</span>
-<span class="w">  ✅ PŘÍPAD #${pad(f.n)} VYŘEŠEN</span>
+<span class="w">  ✅ SPIS ${esc(f.name)} POTVRZEN</span>
 <span class="w">══════════════════════════════</span>
-<span class="d">vyřešeno ${Object.keys(solved).filter(k=>k.startsWith(f.db+'#')).length} spisů v „${esc(f.db)}“</span>`,10);busy=false;
+<span class="d">potvrzeno ${Object.keys(solved).filter(k=>k.startsWith(f.db+'#')).length} spisů v „${esc(f.db)}“</span>`,10);busy=false;
 }
 async function listFiles(db,a,b){
   openDb=db;curFile=null;setPs();lastList=[];line(`<span class="d">načítám databázi „${esc(db)}“ …</span>`);await sleep(300);
-  line(`<span class="y">📁 ${esc(db)}/  (${b-a+1} složek)</span>  <span class="d">klikni na složku nebo napiš: open ČÍSLO</span>`);
-  let h='';for(let n=a;n<=b;n++){const f=genFile(db,n);lastList.push(n);
-    h+=`<span class="dir" data-n="${n}">spis_${pad(n)}/</span> <span class="d">${esc(f.corrupt?'▓▒░ POŠKOZENO':f.name)}</span> <span class="${stOf(db,n)[1]}">${stOf(db,n)[0]}</span>\n`}
+  if(db==='alpha')await type(`<span class="c">╔══════════════════════════════╗
+║   ◆ ORION CORP ◆  PROJEKT CHIMÉRA   ║
+╚══════════════════════════════╝</span>
+<span class="r">PŘÍSNĚ TAJNÉ · subjekty experimentů</span>`,20);
+  line(`<span class="y">📁 ${esc(db)}/  (${b-a+1} složek)</span>  <span class="d">napiš jméno ze složky (např. ${esc(fname(getF(db,a)))}) nebo na ni klikni</span>`);
+  let h='';for(let n=a;n<=b;n++){const f=getF(db,n);lastList.push(n);
+    h+=`<span class="dir" data-n="${n}">📁 ${esc(f.corrupt?'▓▒░_POŠKOZENO':fname(f))}/</span>${f.alpha?' <span class="d">'+f.emo+'</span>':''}\n`}
   await type(h,40);
 }
 function help(){line(`<span class="w">PŘÍKAZY</span>
-  file NÁZEV 1-75   vytvoří databázi a ukáže složky 1–75
+  file NÁZEV 1-75   ukáže složky se jmény 1–75
+  file alpha 1-75   tajné spisy Orion Corp (experimenty)
+  JMÉNO             otevře celý spis (např. tereza_novakova)
   file NÁZEV 12     rovnou otevře spis 12
   open 12           otevře spis z poslední databáze
-  id, foto, info, posledni, dukazy, svedectvi, poznamka, stav
-                    ukáže část otevřeného spisu
-  vyřešeno          vyřeší otevřený spis
+  vyřešeno          potvrdí otevřený spis
   zpet              zavře spis
   random            otevře náhodný spis
   search SLOVO      najde spisy podle jména, města nebo důkazu
   ls                vypíše poslední databázi znovu
   clear             vyčistí obrazovku
   date              čas a datum
-<span class="d">Všechny spisy začínají jako NEVYŘEŠENO. Stejný název + číslo = vždy stejný spis.</span>`)}
+<span class="d">Všechny spisy začínají jako NEPOTVRZENO. Stejný název + číslo = vždy stejný spis.</span>`)}
 async function run(c){
   const p=c.trim().split(/\s+/),k=(p[0]||'').toLowerCase();
   if(!k)return;
   const nk=norm(k);
-  if(curFile&&SECT[nk])return showSect(nk);
-  if(['vyreseno','vyreseno.','vyresit','solve'].includes(nk)){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return solve()}
+  if(curFile&&SECT[nk])return showFile(curFile.db,curFile.n);
+  if(['vyreseno','potvrzeno','potvrdit','vyreseno.','vyresit','solve'].includes(nk)){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return solve()}
   if(['zpet','back','exit','..'].includes(nk)||(k==='cd'&&p[1]==='..')){curFile=null;setPs();return line('<span class="d">spis zavřen</span>')}
   if(k==='help'||k==='?')return help();
   if(k==='clear'||k==='cls'){out.innerHTML='';return}
@@ -136,8 +194,10 @@ async function run(c){
   if(k==='random'){const db=openDb||'test';openDb=db;return showFile(db,1+Math.floor(Math.random()*(lastList.length||75)))}
   if(k==='ls'||k==='dir'){if(!openDb)return line('<span class="d">(prázdné) napiš: file test 1-75</span>');return listFiles(openDb,lastList[0]||1,lastList[lastList.length-1]||75)}
   if(k==='search'){const q=p.slice(1).join(' ').toLowerCase();if(!openDb||!q)return line('<span class="r">použití: search SLOVO (po příkazu file)</span>');
-    const hits=(lastList.length?lastList:[...Array(75)].map((_,i)=>i+1)).map(n=>genFile(openDb,n)).filter(f=>[f.name,f.city,f.place,f.job,...f.clues].join(' ').toLowerCase().includes(q));
+    const hits=(lastList.length?lastList:[...Array(75)].map((_,i)=>i+1)).map(n=>getF(openDb,n)).filter(f=>[f.name,f.city,f.place||'',f.job||'',f.animal||'',...(f.clues||[])].join(' ').toLowerCase().includes(q));
     return line(hits.length?hits.map(f=>`<span class="dir" data-n="${f.n}">spis_${pad(f.n)}/</span> <span class="d">${esc(f.name)} · ${esc(f.city)}</span>`).join('\n'):'nic nenalezeno')}
+  {const q=norm(c.trim()).replace(/[\s/]+/g,'_').replace(/_+$/,'');const pool=lastList.length?lastList:(openDb?[...Array(75)].map((_,i)=>i+1):[]);
+   if(openDb&&q.length>2){const hit=pool.find(n=>fname(getF(openDb,n))===q)||pool.find(n=>fname(getF(openDb,n)).includes(q));if(hit)return showFile(openDb,hit)}}
   if(k==='sudo')return line('<span class="r">pěkný pokus 😏 přístup odepřen</span>');
   line(`<span class="r">neznámý příkaz: ${esc(k)}</span> — napiš <span class="w">help</span>`);
 }
@@ -153,5 +213,5 @@ T.addEventListener('click',e=>{if(!e.target.closest('.dir')&&!getSelection().toS
 [ok] dešifrování
 [!!] některé spisy jsou poškozené</span>
 <span class="d">Všechny osoby a příběhy jsou smyšlené.</span>
-Napiš <span class="w">help</span> nebo zkus: <span class="y">file test 1-75</span>`,8)})();
+Napiš <span class="w">help</span> nebo zkus: <span class="y">file test 1-75</span> · <span class="c">file alpha 1-75</span>`,8)})();
 </script></body></html>
