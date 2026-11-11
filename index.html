@@ -24,7 +24,7 @@ body.gl #t{animation:sh .12s 6;filter:hue-rotate(250deg) contrast(1.6)}@keyframe
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.6';
+const VERSION='1.7';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -79,7 +79,7 @@ function getF(db,n){
   else if(db==='omega'){f=genAlpha(n+500);const r=rng(hash('omega'+n));Object.assign(f,{db:'omega',omega:1,alive:true,id:'ORN-Ω-'+String(n).padStart(3,'0'),seen:P(r,SEEN),esc:`${1+Math.floor(r()*28)}. ${1+Math.floor(r()*12)}. 2026`,danger:1+Math.floor(r()*5),reward:(1+Math.floor(r()*50))*10000})}
   else f=genFile(db,n);
   const L=lockOf(db,n);if(L){f.locked=1;f.pw=L.pw;f.hintIn=L.hintIn}
-  const k=[...Array(75)].map((_,i)=>i+1).find(k=>{const x=lockOf(db,k);return x&&x.hintIn===n});if(k)f.hintFor={k,pw:lockOf(db,k).pw};
+  const ks=[...Array(75)].map((_,i)=>i+1).filter(k=>{const x=lockOf(db,k);return x&&x.hintIn===n});if(ks.length)f.hintFor=ks.map(k=>({k,pw:lockOf(db,k).pw}));
   return f}
 function lockOf(db,n){const h=hash(db+'!lock'+n);if(n>75||h%8)return null;let hi=((n*7+3)%75)+1;if(hi===n||hash(db+'!lock'+hi)%8===0)hi=((n*13+5)%75)+1;return{pw:PW[(h>>>5)%PW.length]+((h>>>9)%90+10),hintIn:hi}}
 const isLocked=f=>f.locked&&!unl[f.db+'#'+f.n];
@@ -122,7 +122,7 @@ ${f.omega?`<span class="r">▸ ÚTĚK · SEKTOR OMEGA</span>
   Přežil${f.fem?'a':''} ..... ${f.alive?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
 ${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}`}
 <span class="c">▸ POZNÁMKA</span>
-  <span class="y">${esc(f.note)}</span>${f.hintFor?`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,f.hintFor.k)))}: ${f.hintFor.pw}“</span>`:''}
+  <span class="y">${esc(f.note)}</span>${f.hintFor?f.hintFor.map(h=>`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,h.k)))}: ${h.pw}“</span>`).join(''):''}
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
     busy=false;return}
@@ -143,7 +143,7 @@ ${f.clues.map(c=>'  • '+esc(c)).join('\n')}
 <span class="c">▸ SVĚDECTVÍ</span>
 ${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}
 <span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>
-  <span class="y">${esc(f.note)}</span>${f.hintFor?`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,f.hintFor.k)))}: ${f.hintFor.pw}“</span>`:''}
+  <span class="y">${esc(f.note)}</span>${f.hintFor?f.hintFor.map(h=>`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,h.k)))}: ${h.pw}“</span>`).join(''):''}
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
   busy=false;
