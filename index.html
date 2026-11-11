@@ -22,7 +22,7 @@ body:after{content:'';position:fixed;inset:0;pointer-events:none;background:repe
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.4';
+const VERSION='1.5';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -82,7 +82,7 @@ const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const photo=(f,col)=>`<img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(f.db+'-'+f.n)}&backgroundColor=${col}">`;
 async function showFile(db,n){
   const f=getF(db,n);curFile=f;openDb=db;setPs();busy=true;const st=stOf(db,n);
-  line(`<span class="d">◆ ORION CORP · otevírám ${esc(fname(f))}/ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=10+Math.random()*15){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
+  line(`<span class="d">◆ ORION CORP · otevírám ${esc(fname(f))}/ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=3+Math.random()*5){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
   if(f.alpha){
     line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br><span class="st ${f.alive?'w':'r'}">${f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
     await type(`<span class="c">◆ ORION CORP · PROJEKT CHIMÉRA · PŘÍSNĚ TAJNÉ</span>
@@ -158,7 +158,7 @@ async function solve(){
 <span class="d">potvrzeno ${Object.keys(solved).filter(k=>k.startsWith(f.db+'#')).length} spisů v „${esc(f.db)}“</span>`,10);busy=false;
 }
 async function listFiles(db,a,b){
-  openDb=db;curFile=null;setPs();lastList=[];line(`<span class="d">◆ ORION CORP · načítám databázi „${esc(db)}“ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=8+Math.random()*12){i.style.width=Math.min(100,p)+'%';await sleep(80)}i.style.width='100%';await sleep(200);L.remove()}
+  openDb=db;curFile=null;setPs();lastList=[];line(`<span class="d">◆ ORION CORP · načítám databázi „${esc(db)}“ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=3+Math.random()*4){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
   if(db==='alpha')await type(`<span class="c">╔══════════════════════════════╗
 ║   ◆ ORION CORP ◆  PROJEKT CHIMÉRA   ║
 ╚══════════════════════════════╝</span>
@@ -215,9 +215,9 @@ cmd.addEventListener('keydown',async e=>{
 out.addEventListener('click',e=>{const d=e.target.closest('.dir');if(d&&!busy&&d.dataset.s){line(`<span class="d">${document.getElementById('ps').textContent}</span> ${d.dataset.s}`);return run(d.dataset.s)}if(d&&!busy){line(`<span class="d">agent@spisy:~$</span> open ${d.dataset.n}`);showFile(openDb,+d.dataset.n)}});
 T.addEventListener('click',e=>{if(!e.target.closest('.dir')&&!getSelection().toString())cmd.focus()});
 async function splash(){const b=document.getElementById('spb'),m=document.getElementById('spm'),sp=document.getElementById('sp');
-  const st=['ověřuji identitu agenta…','připojuji se k serveru ORION-7…','dešifruji archiv…','načítám spisy…','obcházím bezpečnostní protokol…','přístup povolen'];
-  for(let i=0;i<st.length;i++){m.textContent=st[i];b.style.width=Math.round((i+1)/st.length*100)+'%';await sleep(450+Math.random()*350)}
-  await sleep(400);sp.style.opacity=0;await sleep(600);sp.remove();cmd.focus()}
+  const st=['spouštím systém ORION…','ověřuji identitu agenta…','skenuji otisk prstu…','připojuji se k serveru ORION-7…','dešifruji archiv…','načítám spisy…','obcházím bezpečnostní protokol…','přístup povolen ✓'];
+  for(let i=0;i<st.length;i++){m.textContent=st[i];b.style.width=Math.round((i+1)/st.length*100)+'%';await sleep(850+Math.random()*450)}
+  await sleep(900);sp.style.opacity=0;await sleep(600);sp.remove();cmd.focus()}
 (async()=>{await splash();await type(`<span class="c">◆ ORION CORP</span> · interní terminál\n<span class="w">SPISY.exe v${VERSION}</span>  ·  archiv nevyřešených případů
 <span class="d">[ok] připojení k archivu
 [ok] dešifrování
