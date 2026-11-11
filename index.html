@@ -24,7 +24,7 @@ body.gl #t{animation:sh .12s 6;filter:hue-rotate(250deg) contrast(1.6)}@keyframe
 <div id="sp"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".35"/><g class="ring"><circle cx="60" cy="60" r="44" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="60 24"/><circle cx="60" cy="16" r="5" fill="#e5e7eb"/></g><circle cx="60" cy="60" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><path d="M60 46 L66 60 L60 74 L54 60Z" fill="#22d3ee"/><circle cx="44" cy="52" r="2" fill="#e5e7eb"/><circle cx="76" cy="54" r="2" fill="#e5e7eb"/><circle cx="68" cy="76" r="2" fill="#e5e7eb"/></svg><div class="nm">ORION CORP</div><div class="sub">PROJEKT CHIMÉRA · INTERNÍ ARCHIV</div><div class="bar"><i id="spb"></i></div><div class="msg" id="spm">spouštím…</div></div>
 <div id="t"><div id="out"></div><div id="in"><span id="ps">agent@spisy:~$</span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div></div>
 <script>
-const VERSION='1.7';
+const VERSION='1.8';
 const out=document.getElementById('out'),cmd=document.getElementById('cmd'),T=document.getElementById('t');
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let busy=false,hist=[],hi=0,openDb=null,lastList=[];
@@ -90,18 +90,25 @@ function face(f){const e=f.fem?'(◕ ◕)':'(• •)';return ` ┌────�
 let curFile=null;
 const solved=JSON.parse(localStorage.getItem('spisy_solved')||'{}');
 const isSolved=(db,n)=>!!solved[db+'#'+n];
-const stOf=(db,n)=>isSolved(db,n)?['POTVRZENO ✓','w']:['NEPOTVRZENO','y'];
+const cst=JSON.parse(localStorage.getItem('spisy_stav')||'{}');
+const stOf=(db,n)=>cst[db+'#'+n]||(isSolved(db,n)?['POTVRZENO ✓','w']:['NEPOTVRZENO','y']);
+const STW={nalezen:['NALEZEN','w'],nalezena:['NALEZENA','w'],chycen:['CHYCEN','c'],chycena:['CHYCENA','c'],zajat:['ZAJAT','c'],mrtvy:['MRTVÝ','r'],mrtva:['MRTVÁ','r'],zemrel:['ZEMŘEL','r'],zemrela:['ZEMŘELA','r'],utekl:['UPRCHL','r'],utekla:['UPRCHLA','r'],uprchl:['UPRCHL','r'],uprchla:['UPRCHLA','r'],nezvestny:['NEZVĚSTNÝ','y'],nezvestna:['NEZVĚSTNÁ','y'],zivy:['ŽIVÝ','w'],ziva:['ŽIVÁ','w'],prezil:['PŘEŽIL','w'],prezila:['PŘEŽILA','w'],izolace:['V IZOLACI','c'],utajeno:['UTAJENO','c'],nepotvrzeno:null};
+function setSt(st){const f=curFile,key=f.db+'#'+f.n;if(st===null){delete cst[key];delete solved[key];localStorage.setItem('spisy_solved',JSON.stringify(solved))}else cst[key]=st;localStorage.setItem('spisy_stav',JSON.stringify(cst));
+  line(`<span class="w">✎ stav spisu ${esc(fname(f))} změněn na </span><span class="${stOf(f.db,f.n)[1]}">${stOf(f.db,f.n)[0]}</span>`)}
 function setPs(){document.getElementById('ps').textContent=curFile?`agent@spisy:~/${curFile.db}/spis_${pad(curFile.n)}$`:(openDb?`agent@spisy:~/${openDb}$`:'agent@spisy:~$')}
 const SECT={id:'🪪 id',foto:'📷 foto',info:'📋 info',posledni:'📍 posledni',dukazy:'🔎 dukazy',svedectvi:'🗣️ svedectvi',poznamka:'📝 poznamka',stav:'⚖️ stav'};
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const photo=(f,col)=>`<img alt="foto" src="https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(f.db+'-'+f.n)}&backgroundColor=${col}">`;
 async function showFile(db,n){
   const f=getF(db,n);busy=true;const st=stOf(db,n);
-  if(isLocked(f)){openDb=db;line(`<span class="r">🔒 SPIS ${esc(fname(f))} JE UTAJEN</span>\n<span class="d">heslo najdeš v jiném spisu… napiš heslo:</span>`);pend=f;busy=false;return}
+  if(isLocked(f)){openDb=db;line(`<span class="r">🔒 SPIS ${esc(fname(f))} JE ZAŠIFROVANÝ</span>`);const L=line('');const t0=Date.now();
+    const msgs=['rozbaluji '+fname(f)+'.zip','dešifruji AES-256','obnovuji poškozená data','skládám fotky','ověřuji podpis Orion'];
+    while(Date.now()-t0<20000){const p=Math.min(100,Math.floor((Date.now()-t0)/200));const b=Math.round(p/5);L.innerHTML=`<span class="c">[${'█'.repeat(b)}${'░'.repeat(20-b)}] ${p} %</span> <span class="d">${msgs[Math.min(4,Math.floor(p/20))]}…</span>`;T.scrollTop=1e9;await sleep(200)}
+    L.innerHTML='<span class="w">[████████████████████] 100 % ✓ rozbaleno</span>';unl[db+'#'+n]=1;localStorage.setItem('spisy_unl',JSON.stringify(unl));await sleep(500)}
   curFile=f;openDb=db;setPs();
   line(`<span class="d">◆ ORION CORP · otevírám ${esc(fname(f))}/ …</span>`);{const L=line('<span class="ol"><i></i></span>'),i=L.querySelector('i');for(let p=0;p<=100;p+=3+Math.random()*5){i.style.width=Math.min(100,p)+'%';await sleep(90)}i.style.width='100%';await sleep(200);L.remove()}
   if(f.alpha){
-    line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · ${f.omega?'UPRCHLÝ ':''}SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br><span class="st ${f.omega?'r':f.alive?'w':'r'}">${f.omega?'NA ÚTĚKU':f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span><div class="bc"></div></div></div>`);await sleep(250);
+    line(`<div class="idc"><div style="position:relative">${photo(f,'b6e3f4')}<div style="position:absolute;right:-6px;bottom:-6px;font-size:26px">${f.emo}</div></div><div style="flex:1;min-width:0"><div class="h">ORION CORP · ${f.omega?'UPRCHLÝ ':''}SUBJEKT ${f.id}</div><b>${esc(f.name)}</b><br>Nar. ${f.born} · ${f.fem?'Ž':'M'}<br>Proměna: ${esc(f.animal)} ${f.pct} %<br>${cst[db+'#'+n]?`<span class="st ${st[1]}">${st[0]}</span>`:`<span class="st ${f.omega?'r':f.alive?'w':'r'}">${f.omega?'NA ÚTĚKU':f.alive?(f.fem?'PŘEŽILA':'PŘEŽIL'):(f.fem?'ZEMŘELA':'ZEMŘEL')}</span> <span class="st ${st[1]}">${st[0]}</span>`}<div class="bc"></div></div></div>`);await sleep(250);
     await type(`<span class="c">◆ ORION CORP · PROJEKT CHIMÉRA · PŘÍSNĚ TAJNÉ</span>
   ID subjektu .. <span class="w">${f.id}</span>
   Jméno ........ <span class="w">${esc(f.name)}</span>
@@ -122,7 +129,7 @@ ${f.omega?`<span class="r">▸ ÚTĚK · SEKTOR OMEGA</span>
   Přežil${f.fem?'a':''} ..... ${f.alive?'<span class="w">ANO</span>':'<span class="r">NE</span>'}
 ${f.alive?`  Aktuální stav  ${esc(f.state)}`:`  Datum úmrtí .. ${f.death}\n  Příčina ...... <span class="r">${esc(f.cause)}</span>`}`}
 <span class="c">▸ POZNÁMKA</span>
-  <span class="y">${esc(f.note)}</span>${f.hintFor?f.hintFor.map(h=>`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,h.k)))}: ${h.pw}“</span>`).join(''):''}
+  <span class="y">${esc(f.note)}</span>
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
     busy=false;return}
@@ -143,7 +150,7 @@ ${f.clues.map(c=>'  • '+esc(c)).join('\n')}
 <span class="c">▸ SVĚDECTVÍ</span>
 ${f.w.map(c=>'  „'+esc(c)+'“').join('\n')}
 <span class="c">▸ POZNÁMKA VYŠETŘOVATELE</span>
-  <span class="y">${esc(f.note)}</span>${f.hintFor?f.hintFor.map(h=>`\n  <span class="c">🔑 na okraji je načmáráno: „heslo pro ${esc(fname(getF(db,h.k)))}: ${h.pw}“</span>`).join(''):''}
+  <span class="y">${esc(f.note)}</span>
   Stav spisu ... <span class="${st[1]}">${st[0]}</span>
 <span class="d">Potvrdit spis: napiš vyřešeno · zpět: zpet</span>`,6);
   busy=false;
@@ -206,7 +213,11 @@ function help(){line(`<span class="w">PŘÍKAZY</span>
   open 12           otevře spis z poslední databáze
   vyřešeno          potvrdí otevřený spis
   hack              zkus se nabourat do serveru Orion
-  🔒 spisy           potřebují heslo, najdeš ho v jiném spisu
+  🔒 spisy           jsou zašifrované, rozbalují se 20 s
+  nalezen, chycen, mrtvý, uprchl, nezvěstný, živý, izolace …
+                    změní stav otevřeného spisu
+  stav TEXT         vlastní stav (např. stav ve vězení)
+  nepotvrzeno       vrátí stav na začátek
   zpet              zavře spis
   random            otevře náhodný spis
   search SLOVO      najde spisy podle jména, města nebo důkazu
@@ -218,6 +229,8 @@ async function run(c){
   const p=c.trim().split(/\s+/),k=(p[0]||'').toLowerCase();
   if(!k)return;
   const nk=norm(k);
+  if(nk==='stav'&&p.length>1){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return setSt([c.trim().slice(5).toUpperCase(),'y'])}
+  {const w=norm(c.trim()).replace(/[.!]+$/,'').replace(/\s+/g,'');if(w in STW){if(!curFile)return line('<span class="r">nejdřív otevři spis</span>');return setSt(STW[w])}}
   if(hackP){const h=hackP;hackP=null;if(norm(c.trim())===norm(h.code)&&Date.now()<h.until)return hackWin();return alarm('NEÚSPĚŠNÝ HACK')}
   if(pend){const f=pend;pend=null;if(norm(c.trim())===norm(f.pw)){unl[f.db+'#'+f.n]=1;localStorage.setItem('spisy_unl',JSON.stringify(unl));wrong=0;line('<span class="w">🔓 heslo správně</span>');return showFile(f.db,f.n)}
     wrong++;if(wrong>=3){wrong=0;return alarm('3× ŠPATNÉ HESLO')}return line(`<span class="r">✖ špatné heslo (${wrong}/3)</span>`)}
